@@ -1,0 +1,100 @@
+---
+title: "11/03/2022 DataFrame Practice"
+output: html_notebook
+---
+
+### Create DataFrame with 3 columns name,age and gender
+```{r}
+df=data.frame(name=letters[1:5],age=runif(5,min=0,max=99),gender=c('M','F','F','M','F'))
+df
+```
+### Extract details of name, age
+```{r}
+summary(df$name)
+str(df$name)
+```
+```{r}
+summary(df$age)
+str(df$age)
+```
+### Print details of eldest person
+```{r}
+df[which.max(df$age),]
+```
+### Print details of 2nd column
+```{r}
+df[,2]
+```
+### Remove third, forth column
+```{r}
+df[,-4]
+```
+### Print str of df
+```{r}
+str(df)
+```
+### Number od columns in dataframe
+```{r}
+ncol(df)
+```
+### Number of rows in dataframe
+```{r}
+nrow(df)
+```
+### Dimension of DataFrame
+```{r}
+dim(df)
+```
+### Display column names
+```{r}
+names(df)
+```
+### Indexing through rows and columns
+```{r}
+df[2] #2nd column 
+df[2:3,] # 2,3 row of all columns
+df["name"] # name column
+df[2:3,c("age")] # 2nd and 3rd row of age column
+```
+### Fetch multiple columns
+```{r}
+df[c("age",'gender')]
+```
+### Fetch multiple columns and can set column names with "column" attribute
+```{r}
+data.frame(df$name,df$age)
+```
+---
+### Help on ChickWeight dataset
+```{r}
+?ChickWeight
+```
+### Extract features
+```{r}
+names(ChickWeight)
+```
+### Use view() to view dataset
+```{r}
+View(ChickWeight)
+```
+### head() | tail() | str() | summary() | frequency() | time() of dataset
+```{r}
+head(ChickWeight) #first 6 records
+```
+```{r}
+tail(ChickWeight) # last 6 records
+```
+```{r}
+str(ChickWeight) # str of dataset
+```
+```{r}
+summary(ChickWeight) # summary like mean,med, mode etc. of dataset
+```
+```{r}
+#It gives the no. of occurrences of every unique value in the variable.
+frequency(ChickWeight)
+```
+```{r}
+# time() creates the vector of times at which a time series was sampled.
+time(ChickWeight$Time)
+```
