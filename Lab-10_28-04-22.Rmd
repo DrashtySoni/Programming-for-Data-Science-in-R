@@ -1,0 +1,185 @@
+===---
+title: "Lab-10_28-4-22"
+author: "21122018 Drashty Ranpara"
+date: "30/04/2022"
+output: html_document
+---
+#Importing the Dataset.
+```{r}
+library(readxl)
+a=read_excel("C:\\Users\\Lenovo\\Desktop\\MscDs\\SEM-2\\Programming in R\\energydata_complete.xlsx")
+```
+
+#Viewing the Dataset.
+```{r}
+View(a)
+```
+
+#Structure of the Dataset.
+```{r}
+str(a)
+```
+#Column Names of the Dataset.
+```{r}
+names(a)
+```
+#Dimensions of the Dataset.
+```{r}
+dim(a)
+```
+#Summary of the Dataset.
+```{r}
+summary(a)
+```
+#First 5 Rows from the Dataset.
+```{r}
+head(a)
+```
+
+#Last 5 Rows from the Dataset.
+```{r}
+tail(a)
+```
+
+#Class of the Dataset.
+```{r}
+class(a)
+```
+#Minimum, Maximum and Range of only Appliances Variable.
+```{r}
+min(a[,2])
+max(a[,2])
+range(a[,2])
+```
+#Quantiles of all the features except date feature.
+```{r}
+apply(a[,2:29],2,quantile)
+```
+#Standard Deviation of all the variables exclusing Date features.
+```{r}
+apply(a[,2:29], 2, sd)
+```
+#Correlation between all the numerical features of the dataset. 
+```{r}
+cor(a[2:28])
+```
+#EDA-Exploratory Data Analysis.
+
+#Heatmap or Correlation Plot.
+```{r}
+library(corrplot)
+corrplot(cor(a[2:29]), method = "circle")
+```
+
+#Sample BarPlot of the first 100 rows of the Appliances Feature.
+```{r}
+library(RColorBrewer)
+barplot(head(a$Appliances,100),col  = brewer.pal(3,"Set1"),xlab="Appliances",main="Barplot of Appliances")
+```
+
+#Histogram of the first 500 rows of the Lights Column.
+```{r}
+hist(head(a$lights,500), col = "red",xlab="Lights",ylab="Frequency Plotting of Lights",main="Histogram of Lights")
+```
+#QPlot for the Date and Appliances Variables.
+```{r}
+require(gridExtra)
+library(ggplot2)
+plot1 <-qplot(a$date,a$Appliances,xlab='Date',ylab='Appliances Wh',geom="line",col="brown")+theme_grey(base_size = 18) 
+plot1
+```
+#Boxplot of the Appliances Column.
+```{r}
+boxplot(a$Appliances,
+        boxfill = "lightblue",horizontal=TRUE,ylim=c(0,1200),xlab="Appliances Wh",frame=F,
+        cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5)
+```
+#Boxplot of the Lights Column.
+```{r}
+boxplot(a$lights,
+        boxfill = "darkblue",horizontal=TRUE,ylim=c(0,1200),xlab="Appliances Wh",frame=F,
+        cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5)
+```
+#GGplot for Lights and Appliances Variables.
+```{r}
+ggplot(a,aes(x = lights, y = Appliances)) + geom_point() +geom_smooth(method = "lm")
+```
+
+#GGPlot of Windspeed and Visibility Variables.
+```{r}
+ggplot(a,aes(x = Windspeed, y = Visibility)) + geom_point() +geom_smooth(method = "lm")
+```
+#ScatterPlot of Temperature and Humidity for Kitchen Area.
+```{r}
+library(scatterplot3d)
+scatterplot3d(a$T1,a$RH_1,
+              pch=16,type="h",
+              angle=45,
+              xlab="Temperature",
+              ylab="Humidity",
+              main="Scatter Plot of Temperature and Humidity of Kitchen Area",
+              color=c("purple"))
+```
+#ScatterPlot of Temperature and Humidity for Office Room.
+```{r}
+library(scatterplot3d)
+scatterplot3d(a$T4,a$RH_4,
+              pch=16,type="h",
+              angle=45,
+              xlab="Temperature in Celsius",
+              ylab="Humidity",
+              main="Scatter Plot of Temperature and Humidity of Office Room",
+              color=c("brown"))
+```
+#KDE Plot of Windspeed.
+```{r}
+plot(a$Windspeed, main="Kernel Density of WindSpeed ")
+polygon(a$Windspeed, col="red", border="blue")
+```
+#KDE Plot of Pressure from Weather Station in mm hg.
+```{r}
+den <- density(a$Press_mm_hg)
+plot(den, frame = FALSE, col = "orange",main = "Density plot of Pressure from Weather Station")
+```
+#Histogram of Temperature in Teenage Room.
+```{r}
+hist(a$T8, 
+     col="chocolate3",
+     border="black",
+     prob = TRUE,
+     xlab = "Tempertaure in Celsius",
+     main = "Temperature in Teenage Room")
+  
+lines(density(a$T8),
+      lwd = 2,
+      col = "black")
+```
+#Sample Pie Chart for first 20 rows for date and Appliances columns.
+```{r}
+pie(head(a$Appliances,20), head(a$date,20), main = "Appliances pie chart", col = rainbow(length(a$Appliances)))
+```
+#Multiple Linear Regression Model of rv1 with all the columns.
+```{r}
+linearm=lm(rv1~., data = a[2:28])
+linearm
+```
+#Summary of Multiple Linear Regression Model.
+```{r}
+summary(linearm)
+```
+#Predicting the rv1 with linear regression model and storing it into predscore column which will be added in the dataset..
+```{r}
+a$predscore=predict(linearm)
+View(a)
+```
+
+```{r}
+a
+```
+
+#R Square Score of the Multiple Linear Regression Model.
+```{r}
+summary(linearm)$r.squared
+```
+#The r2 core is very low i.e. 0.12% and hence the model is not a good fit for the data.
+

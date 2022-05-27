@@ -1,0 +1,183 @@
+---
+title: "R AutoML using H2O Notebook"
+output: html_notebook
+---
+# AutoML libraries used
+```{r}
+library(tidyverse)
+library(readxl)
+library(h2o)
+
+df=bankdata
+df
+```
+
+
+# **Start H2O CLuster**
+```{r}
+library('h2o')
+h2o.init()
+```
+
+# **H20 Data Preparation**
+## Observe the string and numerical columns
+```{r}
+library(visdat)
+vis_dat(df)
+```
+
+## Convert string columns to factor (aka "enum") type
+```{r}
+df = df %>% mutate_if(is.character, as.factor)
+vis_dat(df)
+```
+
+## The training set (convert to H2OFrame directly if you have data already in R) 
+#### If you have large data, set this option for a speed-up: options("h2o.use.data.table" = TRUE)
+```{r}
+train = as.h2o(df)
+```
+## Take a look at training set
+```{r}
+h2o.describe(train)
+```
+### Identify the response column
+```{r}
+y="y"
+```
+
+### If our binary response column was encoded as 0/1 then we would have to conver it to a factor in order to tell H2o to perform classificiation (instead of regression). Since our response variable is already factor/enum type, there's nothing to do, but in 0/1 case you just do : **train[,y] <- as.factor(train[,y])**
+
+### Identify the predictor column (remove response and ID column)
+```{r}
+x = setdiff(names(train),c(y,"ID"))
+x
+```
+
+# **H2O AutoML Training**
+## Execute an AutoML run for 10 models
+```{r}
+aml = h2o.automl(
+  y=y,
+  x=x,
+  training_frame = train,
+  project_name = "term_deposit",
+  max_models = 10, # max 10 models will run
+  seed=1
+)
+```
+# **H2O AutoML Leaderboard**
+### We will view AutoML leaderboard.Funtion for scoring and ranking the models, the AutoML leaderboard uses cross-validation metrics
+
+#### A default performance metric for each ML task (binary classification, multiclass classification, regression) is specified internally and the leaderboard will be sorted by that metric. In the classification model, the default ranking metric is **Area Under the ROC Curve(AUC).**
+
+### The leader model is stored at "aml@leader" and the leaderboard is stored at "aml@leaderboard".
+```{r}
+lb = aml@leaderboard
+```
+
+### Now we will view  snapshot of top models. Here we should see the 2 Stacked Ensembles at or near the top of the leaderboard. H2O's Stacked Ensemble method is a supervised ensemble machine learning algorithm that finds the optimal combination of a collection of prediction algorithms using a process called stacking. Like all supervised models in H2O, Stacked Ensemeble supports regression, binary classification, and multiclass classification.
+
+```{r}
+print(lb,length(as.data.frame(lb$model_id)[,1]))
+```
+# **Ensemble Exploration**
+
+### To undestand how ensemble works, let's take a peek inside the Stacked Ensemble "All Models". The "All Models" ensemble is a ensemble of all the individual models in AutoML run. This is often the top performing model in leaderboard.
+
+
+## Get the model ids for all models in AutoML Leaderboard
+```{r}
+model_ids = as.data.frame(lb$model_id)[,1]
+model_ids
+```
+## Get "All Models" Stacked Ensemble model
+```{r}
+se = h2o.getModel(grep("StackedEnsemble_AllModels",model_ids,value = TRUE)[1])
+se
+```
+
+## Get the Stacked Ensemble Metalearner model
+
+### Metalearning is the process of learning to learn. It uses the input params as the predicted results of previous model. The metalearner_algorithm option allows you to specify a different metalearner algorithm. Options include:
+
+- **"AUTO"** (GLM with non negative weights & standardization turned off, and if validation_frame is present, then lambda_search is set to True; may change over time). This is the default.
+
+- **"glm"** (GLM with default parameters)
+
+- **"gbm"** (GBM with default parameters)
+
+- **"drf"** (Random Forest with default parameters)
+
+- **"deeplearning"** (Deep Learning with default parameters)
+
+- **"naivebayes"** (NaiveBayes with default parameters)
+
+- **"xgboost"** (if available, XGBoost with default parameters)
+
+```{r}
+metalearner = h2o.getModel(se@model$metalearner$name)
+metalearner
+```
+
+# **Examine Variable Importance of metalearner**
+## Metalearner is actually the standardised coefficient magnitudes of GLM - **0 values indicates to ignore unecessary models**
+```{r}
+h2o.varimp(metalearner)
+```
+
+## We can plot the base learner contributions to ensemble
+```{r}
+h2o.varimp_plot(metalearner)
+```
+
+## **Inference** - Our top model is 	**GBM_1_AutoML_1_20220526_114918**
+
+## Now lets look at the variable importance on training data set using top model : GBM_1_AutoML_1_20220526_114918
+```{r}
+gbm = h2o.getModel(grep("GBM",model_ids,value=TRUE)[1])
+#Examine the variable importance of top GBM Model
+h2o.varimp(gbm)
+#We can also plot the base learner contributions to ensemble
+h2o.varimp_plot(gbm)
+```
+
+# **To know model parameters of the top model 	GBM_1_AutoML_1_20220526_114918 - one can check ntrees, learning rate etc important factors to build a model.**
+```{r}
+gbm@parameters
+```
+# **Additional Guide - One who doesn't like coding can go through GUI interface - H2O AutoML in Flow GUI to find the best model.**
+
+---
+
+# **Pro Tips :**
+- If you have sparse, wide data(eg - text), use the **exclude_algos** argument to turn off the tree based models(GBM,RF) in order to save time and computational cost.
+- If yo want tree based algos only, turn off GLM and DNNs via **exclude_algos**.
+- AutoML will stop after 1 hour unless you change **max_runtime_secs**
+- Running with **max_runtime_secs** is not reproducible since available resources on a machine may change from run to run. Set **max_runtime_sec** to a big number (e.g. 9999999) and use **max_models** instead.
+- All H2O models are stored in **H2O Cluster Memory.**
+- Make sure to give H2O cluster a lot of memory if you're going to create 100s or 1000s of models**( e.g. h2o.init(max_mem_size = "80G"))**
+- If you're expecting more models than listed in leaderboard, or the run is stopping earlier than **max_runtime_secs**, this is a result of the default **"early stopping"** settings.
+- To allow more time, **increase the number of stopping_rounds** and/or **decrease value of stopping_tolerance**.
+- If you want to add (train) more models to an exsisting AutoML Project, just make sure to **use same training set and project_name**.
+- If you set the **same seed twice** it will give you identical models as first run, so change the seed or leave it unset.
+- If you want Stacked Ensembles on later models, you must keep CV predictions : **keep_cross_validation_predictions=TRUE**.
+
+---
+
+# **References -**
+1. **Docs: ** https://tinyurl.com/h2o-automl-docs
+2. ***R and Py tutorials:** https://tinyurl.com/h2o-automl-tutorials
+
+# **H2O Resources -**
+1. **Documentation:** http://docs.h2o.ai
+2. **Tutorials:** https://github.com/h2oai/h2o-tutorials
+3. **Slidedecs:** https://github.com/h20ai/h2o-meetups
+4. **Videos:** https://youtube.com/user/0xdata
+5. **Stack Overflow:** https://stackoverflow.com/tags/h2o
+6. **Google Group:** https://tinyurl.com/h2ostream
+7. **Gitter:** http://gitter.im/h2oai/h2o-3
+8. **Events and Meetups:** http://h2o.ai/events
+
+# **(:  Contribute to H2O  :)**
+https://github.com/h2oai/h2o-3/blob/master/CONTRIBUTING.md
